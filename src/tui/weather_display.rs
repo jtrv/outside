@@ -26,6 +26,7 @@ impl WeatherDisplay {
             Pressure:        {} hPa\n\
             Wind:            {} {} with gusts up to {} {} ({})\n\
             UV Index:        {}\n\
+            Visibility:      {} {}\n\
             Precipitation:   {} {} ({}% chance)",
             context.temperature.round(),
             context.temperature_unit,
@@ -37,6 +38,8 @@ impl WeatherDisplay {
             context.wind_speed_unit,
             context.wind_compass,
             context.uv_index,
+            context.visibility,
+            context.visibility_unit,
             context.precipitation_sum,
             context.precipitation_unit,
             context.precipitation_chance
@@ -46,6 +49,10 @@ impl WeatherDisplay {
         if let Some(description) = &context.precipitation_description {
             info.push('\n');
             info.push_str(&format!("                 {description}"));
+        }
+
+        if let (Some(aqi), Some(description)) = (context.aqi, &context.aqi_description) {
+            info.push_str(&format!("\nAir Quality:     {aqi} ({description})"));
         }
 
         info.push_str(&format!("\nSun:             {} • {}", context.sunrise, context.sunset));

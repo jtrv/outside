@@ -164,3 +164,32 @@ pub fn weather_description(code: i32) -> String {
     }
     .to_string()
 }
+
+/// Returns the EPA category name for a US AQI value.
+pub fn us_aqi_description(aqi: i32) -> String {
+    match aqi {
+        ..=50 => "Good",
+        51..=100 => "Moderate",
+        101..=150 => "Unhealthy for sensitive groups",
+        151..=200 => "Unhealthy",
+        201..=300 => "Very unhealthy",
+        _ => "Hazardous",
+    }
+    .to_string()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn us_aqi_category_boundaries() {
+        assert_eq!(us_aqi_description(0), "Good");
+        assert_eq!(us_aqi_description(50), "Good");
+        assert_eq!(us_aqi_description(51), "Moderate");
+        assert_eq!(us_aqi_description(150), "Unhealthy for sensitive groups");
+        assert_eq!(us_aqi_description(151), "Unhealthy");
+        assert_eq!(us_aqi_description(300), "Very unhealthy");
+        assert_eq!(us_aqi_description(301), "Hazardous");
+    }
+}

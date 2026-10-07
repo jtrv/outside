@@ -35,6 +35,8 @@ impl Output for DetailedOutput {
             "    Pressure:    {pressure}{pressure_unit}".to_string(),
             "    Wind:        {wind_speed}{wind_speed_unit} with gusts up to {wind_gusts}{wind_speed_unit} ({wind_compass})".to_string(),
             "    UV Index:    {uv_index}".to_string(),
+            "    Visibility:  {visibility} {visibility_unit}".to_string(),
+            "{{ if aqi }}    Air Quality: {aqi} ({aqi_description}){{ endif }}".to_string(),
         ];
         // Add precipitation with optional timing description
         let precip_line = if let Some(description) = &context.precipitation_description {

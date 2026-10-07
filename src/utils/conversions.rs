@@ -86,3 +86,13 @@ pub fn kmh_to_mph(kmh: f64) -> f64 {
 pub fn mm_to_inches(mm: f64) -> f64 {
     (mm * 0.0393701 * 10.0).round() / 10.0
 }
+
+/// Converts a distance in meters to kilometers, rounded to 1 decimal place.
+pub fn m_to_km(m: f64) -> f64 {
+    (m / 100.0).round() / 10.0
+}
+
+/// Converts a distance in meters to miles, rounded to 1 decimal place.
+pub fn m_to_miles(m: f64) -> f64 {
+    (m / 1609.344 * 10.0).round() / 10.0
+}

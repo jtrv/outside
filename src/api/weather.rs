@@ -21,7 +21,22 @@ pub struct Weather {
     pub latitude: f64,
     pub longitude: f64,
     #[serde(default)]
+    pub air_quality: Option<AirQuality>,
+    #[serde(default)]
     pub created_at: u64,
+}
+
+#[derive(Default, Serialize, Deserialize, Debug, Savefile)]
+pub struct AirQuality {
+    pub us_aqi: Option<i32>,
+    pub european_aqi: Option<i32>,
+    pub pm2_5: Option<f64>,
+    pub pm10: Option<f64>,
+}
+
+#[derive(Deserialize)]
+struct AirQualityResponse {
+    current: AirQuality,
 }
 
 #[derive(Default, Serialize, Deserialize, Debug, Savefile)]
@@ -36,6 +51,7 @@ pub struct Current {
     pub wind_direction_10m: i32,
     pub wind_speed_10m: f64,
     pub wind_gusts_10m: f64,
+    pub visibility: f64,
 }
 
 #[derive(Default, Serialize, Deserialize, Debug, Savefile)]
@@ -50,6 +66,7 @@ pub struct CurrentUnits {
     pub wind_direction_10m: String,
     pub wind_speed_10m: String,
     pub wind_gusts_10m: String,
+    pub visibility: String,
 }
 
 #[derive(Default, Serialize, Deserialize, Debug, Savefile)]
@@ -137,6 +154,8 @@ impl Weather {
             Self::fetch(lat, lon, metric_unit_strings).with_context(|| "Failed to fetch weather data")?;
         data.latitude = format!("{:.1}", data.latitude).parse().unwrap_or(0.0);
         data.longitude = format!("{:.1}", data.longitude).parse().unwrap_or(0.0);
+        // Air quality comes from a separate Open-Meteo API; weather is still useful without it.
+        data.air_quality = Self::fetch_air_quality(lat, lon).ok();
         data.created_at = now;
 
         match save_file(&filename, 0, &data) {
@@ -185,6 +204,7 @@ impl Weather {
             "precipitation",
             "weather_code",
             "pressure_msl",
+            "visibility",
         ]
         .join(",");
 
@@ -223,5 +243,25 @@ impl Weather {
             .with_context(|| "Unable to fetch weather data from the Open-Meteo API endpoint")?;
 
         serde_json::from_str(&body).with_context(|| "Unable to parse weather response JSON")
+    }
+
+    fn fetch_air_quality(lat: f64, lon: f64) -> Result<AirQuality> {
+        let lat_str = lat.to_string();
+        let lon_str = lon.to_string();
+        let api_url = utils::urls::builder(
+            "https://air-quality-api.open-meteo.com/v1/air-quality",
+            vec![
+                ("latitude", lat_str.as_str()),
+                ("longitude", lon_str.as_str()),
+                ("current", "us_aqi,european_aqi,pm2_5,pm10"),
+            ],
+        );
+
+        let body = client::get_with_retry(&api_url, 2)
+            .with_context(|| "Unable to fetch air quality data from the Open-Meteo API endpoint")?;
+
+        let response: AirQualityResponse =
+            serde_json::from_str(&body).with_context(|| "Unable to parse air quality response JSON")?;
+        Ok(response.current)
     }
 }

@@ -31,6 +31,13 @@ pub struct Context {
     pub sunrise: String,
     pub sunset: String,
     pub uv_index: f64,
+    pub visibility: f64,
+    pub visibility_unit: String,
+    pub aqi: Option<i32>,
+    pub aqi_description: Option<String>,
+    pub european_aqi: Option<i32>,
+    pub pm2_5: Option<f64>,
+    pub pm10: Option<f64>,
     pub precipitation_chance: i32,
     pub precipitation_sum: f64,
     pub precipitation_unit: String,
@@ -151,6 +158,14 @@ impl Context {
             daily.precipitation_sum[0]
         };
 
+        let visibility = if is_imperial {
+            conversions::m_to_miles(current.visibility)
+        } else {
+            conversions::m_to_km(current.visibility)
+        };
+        let air_quality = weather.air_quality.as_ref();
+        let aqi = air_quality.and_then(|aq| aq.us_aqi);
+
         let dailies: Vec<ContextDaily> = daily
             .time
             .iter()
@@ -245,6 +260,13 @@ impl Context {
             sunrise,
             sunset,
             uv_index: daily.uv_index_max[0],
+            visibility,
+            visibility_unit: if is_imperial { "mi".to_string() } else { "km".to_string() },
+            aqi,
+            aqi_description: aqi.map(mappings::us_aqi_description),
+            european_aqi: air_quality.and_then(|aq| aq.european_aqi),
+            pm2_5: air_quality.and_then(|aq| aq.pm2_5),
+            pm10: air_quality.and_then(|aq| aq.pm10),
             precipitation_chance: daily.precipitation_probability_max[0],
             precipitation_sum,
             precipitation_unit: if is_imperial { "in".to_string() } else { "mm".to_string() },
