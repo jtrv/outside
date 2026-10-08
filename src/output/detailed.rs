@@ -37,6 +37,7 @@ impl Output for DetailedOutput {
             "    UV Index:    {uv_index}".to_string(),
             "    Visibility:  {visibility} {visibility_unit}".to_string(),
             "{{ if aqi }}    Air Quality: {aqi} ({aqi_description}){{ endif }}".to_string(),
+            "{{ if pollen_description }}    Pollen:      {pollen_description}{{ endif }}".to_string(),
         ];
         // Add precipitation with optional timing description
         let precip_line = if let Some(description) = &context.precipitation_description {

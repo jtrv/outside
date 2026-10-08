@@ -54,6 +54,9 @@ impl WeatherDisplay {
         if let (Some(aqi), Some(description)) = (context.aqi, &context.aqi_description) {
             info.push_str(&format!("\nAir Quality:     {aqi} ({description})"));
         }
+        if let Some(pollen) = &context.pollen_description {
+            info.push_str(&format!("\nPollen:          {pollen}"));
+        }
 
         info.push_str(&format!("\nSun:             {} • {}", context.sunrise, context.sunset));
 

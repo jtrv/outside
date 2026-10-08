@@ -1,4 +1,5 @@
 use crate::api::location::LocationData;
+use crate::api::pollen::Pollen;
 use crate::api::weather::Weather;
 use crate::context::Context;
 use crate::tui::constants::*;
@@ -193,9 +194,10 @@ impl WeatherFetcher {
         // Fetch weather data
         let weather_data =
             Weather::get_cached(location_data.latitude, location_data.longitude, settings.clone())?;
+        let pollen = Pollen::get_cached(&location_data, &settings.google_pollen_api_key);
 
         // Build context
-        let context = Context::build(weather_data, location_data, settings);
+        let context = Context::build(weather_data, pollen, location_data, settings);
 
         Ok(context)
     }

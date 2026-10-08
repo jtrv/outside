@@ -1,3 +1,4 @@
+use crate::api::pollen::Pollen;
 use crate::utils::conversions;
 use crate::utils::mappings;
 use crate::utils::*;
@@ -38,6 +39,8 @@ pub struct Context {
     pub european_aqi: Option<i32>,
     pub pm2_5: Option<f64>,
     pub pm10: Option<f64>,
+    pub pollen: Option<Pollen>,
+    pub pollen_description: Option<String>,
     pub precipitation_chance: i32,
     pub precipitation_sum: f64,
     pub precipitation_unit: String,
@@ -92,6 +95,7 @@ impl Context {
     /// # Arguments
     ///
     /// * `weather` - Weather data structure containing current conditions and forecasts (always in metric)
+    /// * `pollen` - Pollen data, if any provider covers the location
     /// * `location` - Location data containing city, country, and coordinates
     /// * `settings` - Settings containing units and other configuration
     ///
@@ -99,7 +103,12 @@ impl Context {
     ///
     /// Returns a `Context` struct containing all processed weather and location data
     /// ready for template rendering across different output formats.
-    pub fn build(weather: Weather, location: LocationData, settings: Settings) -> Self {
+    pub fn build(
+        weather: Weather,
+        pollen: Option<Pollen>,
+        location: LocationData,
+        settings: Settings,
+    ) -> Self {
         let now = get_now();
 
         let current = &weather.current;
@@ -267,6 +276,8 @@ impl Context {
             european_aqi: air_quality.and_then(|aq| aq.european_aqi),
             pm2_5: air_quality.and_then(|aq| aq.pm2_5),
             pm10: air_quality.and_then(|aq| aq.pm10),
+            pollen_description: pollen.as_ref().map(Pollen::description),
+            pollen,
             precipitation_chance: daily.precipitation_probability_max[0],
             precipitation_sum,
             precipitation_unit: if is_imperial { "in".to_string() } else { "mm".to_string() },

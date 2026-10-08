@@ -6,6 +6,7 @@ pub mod tui;
 pub mod utils;
 
 use crate::api::location::LocationData;
+use crate::api::pollen::Pollen;
 use crate::api::weather;
 use crate::settings::{OutputFormat, Settings, Units};
 use anyhow::Result;
@@ -127,8 +128,9 @@ async fn run_single_mode(settings: Settings) -> Result<()> {
 async fn output_weather_data(settings: &Settings) -> Result<()> {
     let loc = LocationData::get_cached(settings.clone())?;
     let weather = weather::Weather::get_cached(loc.latitude, loc.longitude, settings.clone())?;
+    let pollen = Pollen::get_cached(&loc, &settings.google_pollen_api_key);
 
-    let context = context::Context::build(weather, loc, settings.clone());
+    let context = context::Context::build(weather, pollen, loc, settings.clone());
     let output = settings.output.render_fn()(context, settings.clone());
 
     println!("{output}");
