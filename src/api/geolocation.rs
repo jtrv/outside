@@ -17,6 +17,8 @@ pub struct Results {
     pub country_code: String,
     pub latitude: f64,
     pub longitude: f64,
+    #[serde(default)]
+    pub postcodes: Vec<String>,
 }
 
 impl Location for GeoLocation {
@@ -65,6 +67,7 @@ impl Location for GeoLocation {
             longitude: result.longitude,
             location: format!("{}, {}", result.name, result.country_code),
             created_at: utils::get_now(),
+            postcode: result.postcodes.first().cloned(),
         };
 
         // Normalize the location data for consistent formatting

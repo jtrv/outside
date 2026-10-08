@@ -12,6 +12,8 @@ pub struct IPLocation {
     pub country_code: String,
     pub lat: f64,
     pub lon: f64,
+    #[serde(default)]
+    pub zip: String,
 }
 
 impl Location for IPLocation {
@@ -37,7 +39,7 @@ impl Location for IPLocation {
     /// - Network connectivity issues prevent IP detection
     fn fetch(_: &str, _: &str) -> Result<LocationData> {
         let base_url = "http://ip-api.com/json";
-        let api_url = utils::urls::builder(base_url, vec![("fields", "33603794")]);
+        let api_url = utils::urls::builder(base_url, vec![("fields", "33603826")]);
 
         let body =
             client::get_with_retry(&api_url, 2).with_context(|| "Unable to fetch IP-based location data")?;
@@ -52,6 +54,7 @@ impl Location for IPLocation {
             longitude: loc.lon,
             location: "".to_string(),
             created_at: utils::get_now(),
+            postcode: Some(loc.zip).filter(|zip| !zip.is_empty()),
         };
 
         // Normalize the location data for consistent formatting

@@ -122,7 +122,7 @@ pub struct Settings {
     pub hour24: bool,
 
     /// File holding a Google Pollen API key (e.g. a sops-nix secret); when set,
-    /// pollen comes from Google instead of Open-Meteo (Europe only)
+    /// pollen comes from Google instead of pollen.com (US) or Open-Meteo (Europe)
     #[cli_settings_file]
     pub google_pollen_api_key_file: String,
 

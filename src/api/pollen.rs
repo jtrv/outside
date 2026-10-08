@@ -24,7 +24,7 @@ const OPEN_METEO_SPECIES: [(&str, &str, &str); 6] = [
 /// One pollen reading, normalized across providers.
 ///
 /// `level` is on the provider's own scale (grains/m³ for Open-Meteo, 0–5 UPI for
-/// Google); `category` is the comparable part.
+/// Google, 0–12 for pollen.com); `category` is the comparable part.
 #[derive(Default, Serialize, Deserialize, Debug, Clone, Savefile)]
 pub struct PollenEntry {
     pub name: String,
@@ -52,8 +52,8 @@ impl Pollen {
     /// Returns pollen data for the location, or `None` when no provider covers it
     /// or every provider request fails.
     ///
-    /// Provider order: Google when `google_api_key_file` holds a key, otherwise
-    /// Open-Meteo (Europe only).
+    /// Provider order: Google when `google_api_key_file` holds a key, pollen.com
+    /// for US locations with a ZIP code, otherwise Open-Meteo (Europe only).
     pub fn get_cached(loc: &LocationData, google_api_key_file: &str) -> Option<Self> {
         let google_api_key = read_api_key(google_api_key_file);
         let google_api_key = google_api_key.as_str();
@@ -75,7 +75,7 @@ impl Pollen {
         entry.pollen
     }
 
-    /// A one-line summary such as "Tree Low · Weed High · Ragweed".
+    /// A one-line summary such as "6.7 (Medium) · Elm, Juniper" or "Tree Low · Weed High".
     pub fn description(&self) -> String {
         let notable: Vec<String> = self
             .entries
@@ -83,7 +83,11 @@ impl Pollen {
             .filter(|e| e.category != "None")
             .map(|e| format!("{} {}", e.name, e.category))
             .collect();
-        let summary = if notable.is_empty() { "None".to_string() } else { notable.join(" · ") };
+        let summary = match self.entries.as_slice() {
+            [only] if only.group.is_empty() => format!("{:.1} ({})", only.level, only.category),
+            _ if notable.is_empty() => "None".to_string(),
+            _ => notable.join(" · "),
+        };
 
         if self.triggers.is_empty() {
             summary
@@ -96,7 +100,10 @@ impl Pollen {
         if !google_api_key.is_empty() {
             return Self::fetch_google(loc.latitude, loc.longitude, google_api_key);
         }
-        Self::fetch_open_meteo(loc.latitude, loc.longitude)
+        match &loc.postcode {
+            Some(zip) if loc.country_code == "US" => Self::fetch_pollen_com(zip),
+            _ => Self::fetch_open_meteo(loc.latitude, loc.longitude),
+        }
     }
 
     fn fetch_open_meteo(lat: f64, lon: f64) -> Result<Option<Self>> {
@@ -135,6 +142,46 @@ impl Pollen {
             return Ok(None);
         }
         Ok(Some(Pollen { source: "open-meteo".to_string(), entries, triggers: Vec::new() }))
+    }
+
+    fn fetch_pollen_com(zip: &str) -> Result<Option<Self>> {
+        let api_url = format!("https://www.pollen.com/api/forecast/current/pollen/{zip}");
+        // Unofficial endpoint: it answers 405 without this Referer and 403 to curl's
+        // User-Agent, which isahc sends by default.
+        let user_agent = concat!(env!("CARGO_PKG_NAME"), "/", env!("CARGO_PKG_VERSION"));
+        let body = client::get_with_headers(
+            &api_url,
+            &[("Referer", "https://www.pollen.com/"), ("User-Agent", user_agent)],
+        )
+        .with_context(|| "Unable to fetch pollen data from pollen.com")?;
+        Self::parse_pollen_com(&body)
+    }
+
+    fn parse_pollen_com(body: &str) -> Result<Option<Self>> {
+        let json: Value = serde_json::from_str(body).with_context(|| "Unable to parse pollen.com JSON")?;
+        let periods = json["Location"]["periods"].as_array();
+        let Some(today) = periods.and_then(|p| p.iter().find(|p| p["Type"] == "Today")) else {
+            return Ok(None);
+        };
+        let Some(level) = today["Index"].as_f64() else {
+            return Ok(None);
+        };
+
+        let triggers = today["Triggers"]
+            .as_array()
+            .map(|t| t.iter().filter_map(|t| t["Name"].as_str().map(str::to_string)).collect())
+            .unwrap_or_default();
+
+        Ok(Some(Pollen {
+            source: "pollen.com".to_string(),
+            entries: vec![PollenEntry {
+                name: "Overall".to_string(),
+                group: String::new(),
+                level,
+                category: pollen_com_category(level).to_string(),
+            }],
+            triggers,
+        }))
     }
 
     fn fetch_google(lat: f64, lon: f64, api_key: &str) -> Result<Option<Self>> {
@@ -220,6 +267,17 @@ fn nab_category(group: &str, grains: f64) -> &'static str {
     }
 }
 
+/// pollen.com's bands for its 0–12 index.
+fn pollen_com_category(index: f64) -> &'static str {
+    match index {
+        i if i < 2.5 => "Low",
+        i if i < 4.9 => "Low-Medium",
+        i if i < 7.3 => "Medium",
+        i if i < 9.7 => "Medium-High",
+        _ => "High",
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -242,6 +300,21 @@ mod tests {
     }
 
     #[test]
+    fn pollen_com_reads_today_and_triggers() {
+        let body = r#"{"Type":"pollen","Location":{"ZIP":"93001","periods":[
+            {"Triggers":[],"Type":"Yesterday","Index":9.9},
+            {"Triggers":[{"Name":"Elm","PlantType":"Tree"},{"Name":"Ragweed","PlantType":"Ragweed"}],"Type":"Today","Index":6.7}]}}"#;
+        let pollen = Pollen::parse_pollen_com(body).unwrap().unwrap();
+        assert_eq!(pollen.description(), "6.7 (Medium) · Elm, Ragweed");
+    }
+
+    #[test]
+    fn pollen_com_unknown_zip_is_none() {
+        let body = r#"{"Type":"pollen","Location":{"ZIP":"00000","periods":[]}}"#;
+        assert!(Pollen::parse_pollen_com(body).unwrap().is_none());
+    }
+
+    #[test]
     fn google_reads_types_and_in_season_plants() {
         let body = r#"{"regionCode":"US","dailyInfo":[{
             "pollenTypeInfo":[
@@ -261,5 +334,7 @@ mod tests {
         assert_eq!(nab_category("Grass", 4.9), "Low");
         assert_eq!(nab_category("Grass", 5.0), "Moderate");
         assert_eq!(nab_category("Weed", 500.0), "Very High");
+        assert_eq!(pollen_com_category(7.2), "Medium");
+        assert_eq!(pollen_com_category(7.3), "Medium-High");
     }
 }

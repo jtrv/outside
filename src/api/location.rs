@@ -40,6 +40,8 @@ pub struct LocationData {
     pub longitude: f64,
     pub location: String,
     pub created_at: u64,
+    #[serde(default)]
+    pub postcode: Option<String>,
 }
 
 impl LocationData {
