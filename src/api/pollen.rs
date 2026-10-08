@@ -52,9 +52,11 @@ impl Pollen {
     /// Returns pollen data for the location, or `None` when no provider covers it
     /// or every provider request fails.
     ///
-    /// Provider order: Google when `google_api_key` is set, otherwise Open-Meteo
-    /// (Europe only).
-    pub fn get_cached(loc: &LocationData, google_api_key: &str) -> Option<Self> {
+    /// Provider order: Google when `google_api_key_file` holds a key, otherwise
+    /// Open-Meteo (Europe only).
+    pub fn get_cached(loc: &LocationData, google_api_key_file: &str) -> Option<Self> {
+        let google_api_key = read_api_key(google_api_key_file);
+        let google_api_key = google_api_key.as_str();
         let key = format!("{},{},{}", loc.latitude, loc.longitude, !google_api_key.is_empty());
         let filename = utils::cache::get_cached_file("pollen", &key);
         let now = utils::get_now();
@@ -141,14 +143,15 @@ impl Pollen {
         let api_url = utils::urls::builder(
             "https://pollen.googleapis.com/v1/forecast:lookup",
             vec![
-                ("key", api_key),
                 ("location.latitude", lat_str.as_str()),
                 ("location.longitude", lon_str.as_str()),
                 ("days", "1"),
                 ("plantsDescription", "0"),
             ],
         );
-        let body = client::get_with_retry(&api_url, 2)
+        // A header rather than the documented ?key= parameter, because request
+        // errors include the URL and would print the key.
+        let body = client::get_with_headers(&api_url, &[("X-Goog-Api-Key", api_key)])
             .with_context(|| "Unable to fetch pollen data from the Google Pollen API")?;
         Self::parse_google(&body)
     }
@@ -184,6 +187,18 @@ impl Pollen {
 
         Ok(Some(Pollen { source: "google".to_string(), entries, triggers }))
     }
+}
+
+/// Reads an API key from a file, so config.yaml can be committed without it.
+/// An empty path means no key.
+fn read_api_key(path: &str) -> String {
+    if path.is_empty() {
+        return String::new();
+    }
+    std::fs::read_to_string(path).map(|key| key.trim().to_string()).unwrap_or_else(|e| {
+        eprintln!("Unable to read the Google Pollen API key from {path}: {e}");
+        String::new()
+    })
 }
 
 /// US National Allergy Bureau count categories (grains/m³), per plant group.

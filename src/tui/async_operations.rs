@@ -194,7 +194,7 @@ impl WeatherFetcher {
         // Fetch weather data
         let weather_data =
             Weather::get_cached(location_data.latitude, location_data.longitude, settings.clone())?;
-        let pollen = Pollen::get_cached(&location_data, &settings.google_pollen_api_key);
+        let pollen = Pollen::get_cached(&location_data, &settings.google_pollen_api_key_file);
 
         // Build context
         let context = Context::build(weather_data, pollen, location_data, settings);

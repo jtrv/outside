@@ -121,10 +121,10 @@ pub struct Settings {
     #[cli_settings_clap = "#[arg(long = \"24\", action = clap::ArgAction::SetTrue, verbatim_doc_comment)]"]
     pub hour24: bool,
 
-    /// Google Pollen API key; when set, pollen comes from Google instead of
-    /// Open-Meteo (Europe only)
+    /// File holding a Google Pollen API key (e.g. a sops-nix secret); when set,
+    /// pollen comes from Google instead of Open-Meteo (Europe only)
     #[cli_settings_file]
-    pub google_pollen_api_key: String,
+    pub google_pollen_api_key_file: String,
 
     #[cli_settings_file]
     pub simple: SimpleConfig,

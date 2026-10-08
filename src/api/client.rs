@@ -48,9 +48,20 @@ pub fn get_client() -> &'static HttpClient {
 /// - The response status indicates failure
 /// - The response body cannot be read as text
 pub fn get(url: &str) -> Result<String> {
+    get_with_headers(url, &[])
+}
+
+/// Performs a GET request with extra request headers; see [`get`].
+pub fn get_with_headers(url: &str, headers: &[(&str, &str)]) -> Result<String> {
     let client = get_client();
 
-    let mut response = client.get(url).with_context(|| format!("Unable to send request to {url}"))?;
+    let mut request = isahc::Request::get(url);
+    for (name, value) in headers {
+        request = request.header(*name, *value);
+    }
+    let request = request.body(()).with_context(|| format!("Unable to build request to {url}"))?;
+
+    let mut response = client.send(request).with_context(|| format!("Unable to send request to {url}"))?;
 
     if !response.status().is_success() {
         return Err(anyhow::anyhow!(
