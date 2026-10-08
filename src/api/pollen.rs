@@ -164,7 +164,7 @@ impl Pollen {
         };
 
         // indexInfo is omitted for out-of-season types.
-        let entries = types
+        let entries: Vec<PollenEntry> = types
             .iter()
             .map(|t| PollenEntry {
                 name: t["displayName"].as_str().unwrap_or_default().to_string(),
@@ -174,13 +174,16 @@ impl Pollen {
             })
             .collect();
 
+        // Google lists grass as a plant too ("Grasses"); repeating a group name says nothing.
         let triggers = today["plantInfo"]
             .as_array()
             .map(|plants| {
                 plants
                     .iter()
                     .filter(|p| p["indexInfo"]["value"].as_f64().unwrap_or(0.0) > 0.0)
-                    .filter_map(|p| p["displayName"].as_str().map(str::to_string))
+                    .filter_map(|p| p["displayName"].as_str())
+                    .filter(|name| !entries.iter().any(|e| name.starts_with(e.name.as_str())))
+                    .map(str::to_string)
                     .collect()
             })
             .unwrap_or_default();
@@ -247,6 +250,7 @@ mod tests {
                 {"code":"WEED","displayName":"Weed","indexInfo":{"value":3,"category":"Moderate"}}],
             "plantInfo":[
                 {"code":"BIRCH","displayName":"Birch","indexInfo":{"value":0,"category":"None"}},
+                {"code":"GRAMINALES","displayName":"Grasses","indexInfo":{"value":1,"category":"Very Low"}},
                 {"code":"RAGWEED","displayName":"Ragweed","indexInfo":{"value":3,"category":"Moderate"}}]}]}"#;
         let pollen = Pollen::parse_google(body).unwrap().unwrap();
         assert_eq!(pollen.description(), "Grass Very Low · Weed Moderate · Ragweed");
