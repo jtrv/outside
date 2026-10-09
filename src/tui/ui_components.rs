@@ -120,7 +120,7 @@ impl UiComponents {
 
     pub fn create_help_bar() -> TextView {
         let help_text =
-            "Enter: Select  |  a: Add new  |  d: Delete  |  u: Units  |  f: Forecast  |  q/Esc: Quit";
+            "j/k: Move  |  Enter: Select  |  a: Add new  |  d: Delete  |  u: Units  |  f: Forecast  |  q/Esc: Quit";
         TextView::new(help_text).h_align(HAlign::Center)
     }
 

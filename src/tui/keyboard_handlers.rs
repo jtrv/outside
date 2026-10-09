@@ -17,6 +17,7 @@ impl KeyboardHandlers {
         weather_fetcher: WeatherFetcher,
     ) {
         Self::setup_quit_handlers(siv);
+        Self::setup_navigation_handlers(siv);
         Self::setup_location_handlers(siv, state_manager.clone(), location_manager, weather_fetcher.clone());
         Self::setup_unit_toggle_handler(siv, weather_fetcher);
         Self::setup_forecast_toggle_handler(siv, state_manager);
@@ -32,6 +33,24 @@ impl KeyboardHandlers {
                 s.quit();
             }
         });
+    }
+
+    fn setup_navigation_handlers(siv: &mut Cursive) {
+        siv.add_global_callback('j', |s| Self::move_selection(s, |view| view.select_down(1)));
+        siv.add_global_callback('k', |s| Self::move_selection(s, |view| view.select_up(1)));
+        siv.add_global_callback('g', |s| Self::move_selection(s, |view| view.set_selection(0)));
+        siv.add_global_callback('G', |s| {
+            Self::move_selection(s, |view| view.set_selection(view.len().saturating_sub(1)))
+        });
+    }
+
+    fn move_selection(
+        siv: &mut Cursive,
+        movement: impl FnOnce(&mut SelectView<String>) -> cursive::event::Callback,
+    ) {
+        if let Some(callback) = siv.call_on_name(LOCATION_LIST_NAME, movement) {
+            callback(siv);
+        }
     }
 
     fn setup_location_handlers(
